@@ -86,6 +86,7 @@
     <ClInclude Include="guild.h" />
     <ClInclude Include="utils.h" />
     <ClInclude Include="xfsa.h" />
+    <ClInclude Include="xpck.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="3ds-xfsatool.cpp" />
@@ -100,6 +101,7 @@
     <ClCompile Include="guild.cpp" />
     <ClCompile Include="utils.cpp" />
     <ClCompile Include="xfsa.cpp" />
+    <ClCompile Include="xpck.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

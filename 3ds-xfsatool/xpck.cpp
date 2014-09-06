@@ -4,39 +4,41 @@
 #include <map>
 #include "utils.h"
 #include "compression.h"
-#include "xfsa.h"
+#include "xpck.h"
 
-typedef struct _ArchiveHeaderXfsa
+typedef struct _ArchiveHeaderXpck
 {
 	unsigned char magic[4];
-	int table1Offset; // Folder information?
-	int table2Offset; // ?
-	int table3Offset; // File information
-	int filenameTableOffset; // Filename list
-	int dataOffset; // Actual file data
-} ArchiveHeaderXfsa;
+	unsigned char fileCount;
+	unsigned char unknown;
+	unsigned short fileInfoOffset;
+	unsigned short filenameTableOffset;
+	unsigned short dataOffset;
+	unsigned short fileInfoSize;
+	unsigned short filenameTableSize;
+	unsigned int dataSize;
+} ArchiveHeaderXpck;
 
-typedef struct _FileEntryXfsa
+typedef struct _FileEntryXpck
 {
 	unsigned int crc32;
-	int unknown1;
-	int offset;
-	int unknown2;
+	unsigned int unknown;
+	unsigned int offset;
 	int filesize;
-} FileEntryXfsa;
+} FileEntryXpck;
 
-static void ParseFilenames(FILE *infile, ArchiveHeaderXfsa header);
-static void ParseFileEntries(FILE *infile, ArchiveHeaderXfsa header);
+static void ParseFilenames(FILE *infile, ArchiveHeaderXpck header);
+static void ParseFileEntries(FILE *infile, ArchiveHeaderXpck header);
 
 static std::vector<std::string> filenames;
 static std::vector<std::string> foldernames;
 static std::map<unsigned int, std::string> filename_mapping;
 static std::map<unsigned int, int> file_index;
-static std::vector<FileEntryXfsa> file_entries;
+static std::vector<FileEntryXpck> file_entries;
 
-void ParseXfsa(FILE *infile, bool quietMode)
+void ParseXpck(FILE *infile, bool quietMode)
 {
-	ArchiveHeaderXfsa header = { 0 };
+	ArchiveHeaderXpck header = { 0 };
 	int archiveSize = 0;
 
 	fseek(infile,0,SEEK_END);
@@ -44,11 +46,21 @@ void ParseXfsa(FILE *infile, bool quietMode)
 	rewind(infile);
 
 	fread(header.magic, 1, 4, infile);
-	fread(&header.table1Offset, 1, 4, infile);
-	fread(&header.table2Offset, 1, 4, infile);
-	fread(&header.table3Offset, 1, 4, infile);
-	fread(&header.filenameTableOffset, 1, 4, infile);
-	fread(&header.dataOffset, 1, 4, infile);
+	fread(&header.fileCount, 1, 1, infile);
+	fread(&header.unknown, 1, 1, infile);
+	fread(&header.fileInfoOffset, 1, 2, infile);
+	fread(&header.filenameTableOffset, 1, 2, infile);
+	fread(&header.dataOffset, 1, 2, infile);
+	fread(&header.fileInfoSize, 1, 2, infile);
+	fread(&header.filenameTableSize, 1, 2, infile);
+	fread(&header.dataSize, 1, 4, infile);
+
+	header.fileInfoOffset *= 4;
+	header.filenameTableOffset *= 4;
+	header.dataOffset *= 4;
+	header.fileInfoSize *= 4;
+	header.filenameTableSize *= 4;
+	header.dataSize *= 4;
 
 	ParseFilenames(infile, header);
 	ParseFileEntries(infile, header);
@@ -79,13 +91,6 @@ void ParseXfsa(FILE *infile, bool quietMode)
 			{
 				int idx = file_index[crc32];
 
-				if(!quietMode)
-				{
-					printf("[%06d] %-38s size[%08x] offset[%08x]\n", dumped, fullpath.c_str(), file_entries[idx].filesize, file_entries[idx].offset);
-				}
-
-				dumped++;
-
 				if(file_entries[idx].filesize > bufferSize)
 				{
 					bufferSize = file_entries[idx].filesize * 2;
@@ -108,6 +113,34 @@ void ParseXfsa(FILE *infile, bool quietMode)
 
 				fseek(infile,header.dataOffset + file_entries[idx].offset,SEEK_SET);
 				fread(buffer, 1, file_entries[idx].filesize, infile);
+
+				// Try to decompress data
+				if(memcmp(buffer + 4, "\0DVLB", 5) == 0 || 
+					memcmp(buffer + 4, "\0XPCK", 5) == 0 || 
+					memcmp(buffer + 4, "\0CHRC", 5) == 0 || 
+					memcmp(buffer + 4, "\0RESC", 5) == 0)
+				{
+					int length = *(int*)buffer;
+					length /= 8;
+
+					int output_len = 0;
+					char *data = decompress(buffer, file_entries[idx].filesize, &output_len);
+
+					// Replace the running buffer with the decompressed data's buffer.
+					// Lazy way to handle this without changign the code after.
+					free(buffer);
+					buffer = data;
+
+					file_entries[idx].filesize = output_len;
+					bufferSize = output_len;
+				}
+
+				if(!quietMode)
+				{
+					printf("[%06d] %-38s size[%08x] offset[%08x]\n", dumped, fullpath.c_str(), file_entries[idx].filesize, file_entries[idx].offset);
+				}
+
+				dumped++;
 
 				FILE *outfile = fopen(fullpath.c_str(), "wb");
 
@@ -132,9 +165,9 @@ void ParseXfsa(FILE *infile, bool quietMode)
 		free(buffer);
 }
 
-void ParseFilenames(FILE *infile, ArchiveHeaderXfsa header)
+void ParseFilenames(FILE *infile, ArchiveHeaderXpck header)
 {
-	int bufferSize = header.dataOffset - header.filenameTableOffset;
+	int bufferSize = header.filenameTableSize;
 	char *buffer = (char*)calloc(bufferSize, sizeof(char));
 
 	fseek(infile,header.filenameTableOffset,SEEK_SET);
@@ -157,7 +190,7 @@ void ParseFilenames(FILE *infile, ArchiveHeaderXfsa header)
 	{
 		if(decomp[i] == '\0')
 		{
-			if(startOffset != 0)
+			if(startOffset != 0 || (startOffset == 0 && decomp[startOffset] != '\0'))
 			{
 				std::string filename(decomp + startOffset);
 
@@ -184,46 +217,34 @@ void ParseFilenames(FILE *infile, ArchiveHeaderXfsa header)
 	free(decomp);
 }
 
-void ParseFileEntries(FILE *infile, ArchiveHeaderXfsa header)
+void ParseFileEntries(FILE *infile, ArchiveHeaderXpck header)
 {
-	int bufferSize = header.filenameTableOffset - header.table3Offset;
-	char *buffer = (char*)calloc(bufferSize, sizeof(char));
+	int bufferSize = header.fileInfoSize;
+	unsigned int *buffer = (unsigned int*)calloc(bufferSize, sizeof(unsigned int));
 
-	fseek(infile,header.table3Offset,SEEK_SET);
+	fseek(infile,header.fileInfoOffset,SEEK_SET);
 	fread(buffer, 1, bufferSize, infile);
-	
-	int output_len = 0;
-	unsigned int *decomp = NULL;
-	
-	bool flipBits = buffer[4] == 0x0f;
-	decomp = (unsigned int*)decompress(buffer, bufferSize, &output_len);
-
-	if(flipBits)
-	{
-		unsigned char *d = (unsigned char*)decomp;
-		for(int i = 0; i < output_len; i++)
-		{
-			d[i] = (d[i] << 4) | (d[i] >> 4);
-		}
-	}
 
 	/*
 	FILE *outfile = fopen("output.bin","wb");
-	fwrite(decomp, 1, output_len, outfile);
+	fwrite((unsigned char*)buffer, 1, bufferSize, outfile);
 	fclose(outfile);
 	*/
 
-	for(int i = 0; i < output_len / 4; i += 3)
+	for(int i = 0; i < bufferSize / 4; i += 3)
 	{
-		FileEntryXfsa entry = { 0 };
+		FileEntryXpck entry = { 0 };
 
-		entry.crc32 = decomp[i];
-		//entry.unknown1 = decomp[i+1] >> 24;
-		entry.offset = (decomp[i+1] & 0xffffff) << 4;
-		//entry.unknown2 = decomp[i+2] >> 24;
-		entry.filesize = decomp[i+2] & 0x7fffff; // there's something weird going on here but i'm not sure what exactly
+		entry.crc32 = buffer[i];
+		entry.offset = buffer[i+1] >> 16;
+		entry.unknown = buffer[i+1];
+		entry.filesize = buffer[i+2];//(buffer[i+2] & 0xffff) | ((buffer[i+2] & 0xff000000) >> 8) | ((buffer[i+2] & 0x00ff0000) >> 8);
+
+		entry.offset *= 4;
+		//entry.filesize *= 4;
 		
-		//printf("%08x %02x %07x %02x %06x %s\n", entry.crc32, entry.unknown1, entry.offset, entry.unknown2, entry.filesize, filename_mapping[entry.crc32].c_str());
+		//printf("%08x %08x %08x %s\n", entry.crc32, entry.offset, entry.filesize, filename_mapping[entry.crc32].c_str());
+		//break;
 
 		file_index[entry.crc32] = file_entries.size();
 		file_entries.push_back(entry);
@@ -232,5 +253,4 @@ void ParseFileEntries(FILE *infile, ArchiveHeaderXfsa header)
 	//printf("%d %d\n", file_entries.size(), filenames.size() - foldernames.size());
 
 	free(buffer);
-	free(decomp);
 }

@@ -14,6 +14,7 @@
 #include "arc.h"
 #include "guild.h"
 #include "xfsa.h"
+#include "xpck.h"
 
 void ParseArchive(char *filename, char *outputFolder, bool quietMode);
 
@@ -105,13 +106,17 @@ void ParseArchive(char *filename, char *outputFolder, bool quietMode)
 	CreateFullPath(outputFolder, true);
 	chdir(outputFolder);
 
-	if(memcmp(magic, "XFSA", 4) == 0) // XFSA
+	if(memcmp(magic, "XFSA", 4) == 0)
 	{
 		ParseXfsa(infile, quietMode);
 	}
-	else if(memcmp(magic, "ARC0", 4) == 0) // ARC0
+	else if(memcmp(magic, "ARC0", 4) == 0)
 	{
 		ParseArc(infile, quietMode);
+	}
+	else if(memcmp(magic, "XPCK", 4) == 0)
+	{
+		ParseXpck(infile, quietMode);
 	}
 	else
 	{
