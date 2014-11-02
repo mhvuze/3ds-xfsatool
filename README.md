@@ -1,7 +1,7 @@
 3ds-xfsatool
 ============
 
-Unpack XFSA, ARC, and XPCK archives used in Level 5 games on the 3DS
+Unpack XFSA, ARC, XPCK, Guild01, and Fantasy Life archives used in Level 5 games on the 3DS
 
 
 
