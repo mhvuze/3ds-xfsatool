@@ -15,6 +15,7 @@
 #include "guild.h"
 #include "xfsa.h"
 #include "xpck.h"
+#include "fantasylife.h"
 
 void ParseArchive(char *filename, char *outputFolder, bool quietMode);
 
@@ -78,7 +79,19 @@ int main(int argc, char **argv)
 
 	if(outputFolder == NULL)
 	{
-		outputFolder = "output";
+		// Copy filename and remove extension
+		outputFolder = (char*)calloc(strlen(filename) + 1, sizeof(char));
+		strncpy(outputFolder, filename, strlen(filename));
+		
+		bool foundEnd = false;
+		for(int i = strlen(outputFolder) - 1; i > 0 && !foundEnd; i--)
+		{
+			if(outputFolder[i] == '.')
+			{
+				outputFolder[i] = '\0';
+				foundEnd = true;
+			}
+		}
 	}
 
 	clock_t start = clock();
@@ -120,8 +133,15 @@ void ParseArchive(char *filename, char *outputFolder, bool quietMode)
 	}
 	else
 	{
-		ParseGuild(infile, quietMode);
+		// Headerless archives. Try to determine what game the archive came from.
+		bool isGuild = ParseGuild(infile, quietMode);
 
+		if(!isGuild)
+		{
+			//printf("Not a valid Guild01 archive, parsing as Fantasy Life...\n");
+			ParseFantasyLife(infile, quietMode);
+		}
+		
 		//printf("Not a valid XFSA or ARC0 archive.\n");
 		//exit(-2);
 	}

@@ -60,6 +60,9 @@
     <ClInclude Include="xpck.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="fantasylife.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="3ds-xfsatool.cpp">
@@ -99,6 +102,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="xpck.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fantasylife.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

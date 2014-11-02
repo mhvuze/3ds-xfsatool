@@ -31,6 +31,11 @@ char *decomp_lzss(char *input, int len, int *output_len)
 	return (char*)LZSS_Decode((unsigned char*)input, len, (unsigned int*)output_len);
 }
 
+char *decomp_lzx(char *input, int len, int *output_len)
+{
+	return (char*)LZX_Decode((unsigned char*)input, len, (unsigned int*)output_len);
+}
+
 char *decomp_huffman(char *input, int len, int *output_len)
 {
 	int size = *(unsigned int*)input / 8;

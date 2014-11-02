@@ -20,7 +20,7 @@ typedef struct _FileEntryGuild
 } FileEntryGuild;
 
 
-void ParseGuild(FILE *infile, bool quietMode)
+bool ParseGuild(FILE *infile, bool quietMode)
 {
 	ArchiveHeaderGuild header = { 0 };
 	int archiveSize = 0;
@@ -31,6 +31,10 @@ void ParseGuild(FILE *infile, bool quietMode)
 	
 	fread(&header.fileCount, 1, 4, infile);
 	fread(&header.archiveSize, 1, 4, infile);
+
+	if(header.archiveSize != archiveSize)
+		return false;
+
 	fread(header.pad, 1, 8, infile);
 
 	if(archiveSize != header.archiveSize)
@@ -100,4 +104,6 @@ void ParseGuild(FILE *infile, bool quietMode)
 	{
 		free(buffer);
 	}
+
+	return true;
 }

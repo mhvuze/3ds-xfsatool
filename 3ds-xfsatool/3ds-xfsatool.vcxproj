@@ -83,6 +83,7 @@
     <ClInclude Include="cuecomp\lzss.h" />
     <ClInclude Include="cuecomp\lzx.h" />
     <ClInclude Include="cuecomp\rle.h" />
+    <ClInclude Include="fantasylife.h" />
     <ClInclude Include="guild.h" />
     <ClInclude Include="utils.h" />
     <ClInclude Include="xfsa.h" />
@@ -98,6 +99,7 @@
     <ClCompile Include="cuecomp\lzss.cpp" />
     <ClCompile Include="cuecomp\lzx.cpp" />
     <ClCompile Include="cuecomp\rle.cpp" />
+    <ClCompile Include="fantasylife.cpp" />
     <ClCompile Include="guild.cpp" />
     <ClCompile Include="utils.cpp" />
     <ClCompile Include="xfsa.cpp" />
